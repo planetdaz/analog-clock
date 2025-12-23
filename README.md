@@ -1,139 +1,123 @@
-# Nigel's Potty Timer
+# ESP32 Analog Clock
 
-A touchscreen timer application for the ESP32-32E LCD display to track our dog Nigel's potty breaks throughout the night.
+A smooth, anti-aliased analog clock for ESP32 "Cheap Yellow Display" (CYD) boards with NTP time synchronization.
 
-## Purpose
+## Features
 
-Nigel wakes us up multiple times at night to go potty. This device sits by the door (visible from bed) and helps us track:
-- How long since his last potty break
-- Whether it's time to take him out again (via color-coded display)
-- A log of all potty break durations
+- **Beautiful analog clock face** with anti-aliased rendering for smooth hands and dial
+- **NTP time sync** - automatically fetches accurate time from the internet
+- **Automatic DST handling** - supports multiple time zones with daylight saving rules
+- **Digital time/date overlay** - shows 12-hour time and date in the center of the clock
+- **Smooth animation** - clock hands update every 100ms for fluid movement
+- **Multi-board support** - works with both resistive and capacitive touch CYD variants
 
-## Hardware
+## Supported Hardware
 
-**Device:** 2.8" ESP32-32E Display Module
-- **Display:** 240×320 ILI9341 TFT LCD (SPI)
+This project supports two ESP32 "Cheap Yellow Display" variants:
+
+### ESP32-2432S028R (Resistive Touch)
+- **Display:** 2.8" 320×240 ILI9341 TFT LCD
 - **Touch:** XPT2046 resistive touchscreen (SPI)
-- **CPU:** ESP32-WROOM-32E (Xtensa dual-core @ 240MHz)
-- **Memory:** 4MB Flash, 520KB SRAM
-- **Link:** https://www.lcdwiki.com/2.8inch_ESP32-32E_Display
+- **Backlight:** GPIO 21
 
-### Pin Configuration
+### JC2432W328C (Capacitive Touch)
+- **Display:** 2.8" 320×240 ST7789 TFT LCD
+- **Touch:** CST816S capacitive touch (I2C)
+- **Backlight:** GPIO 27
 
-**LCD Display:**
-- CS: GPIO15
-- DC: GPIO2
-- SCK: GPIO14
-- MOSI: GPIO13
-- MISO: GPIO12
-- Backlight: GPIO21
+### Common Pin Configuration
 
-**Touch Controller:**
-- T_CS: GPIO33
-- T_CLK: GPIO25
-- T_DIN: GPIO32
-- T_DO: GPIO39
-- T_IRQ: GPIO36
-
-## How It Works
-
-### On Boot
-1. Device logs a "Boot" entry to flash storage
-2. Display shows "Touch to Start" with timer at 0:00:00
-3. Background is red (not started)
-
-### Operation
-1. **First touch:** Timer starts counting up from 0:00:00
-2. **Subsequent touches:** 
-   - Log entry written with duration since last touch
-   - Timer resets to 0:00:00
-   - Timer immediately restarts
-
-### Color Coding (Visible from Bed)
-
-The background color indicates time since last potty break:
-
-- 🔴 **Red:** 0-30 minutes (too soon to go again)
-- 🟡 **Yellow:** 30 minutes - 2 hours (borderline)
-- 🟢 **Green:** 2+ hours (definitely time to go)
-
-### Timer Display
-
-- **Format:** hh:mm:ss (hours:minutes:seconds)
-- **Updates:** Every second
-- **Touch debounce:** Prevents accidental double-touches
-
-### Data Logging
-
-- **Storage:** LittleFS (ESP32 flash memory)
-- **File:** `/logs.txt`
-- **Format:** Simple text entries with relative timestamps
-  ```
-  Boot at +0ms
-  Duration: 01:23:45
-  Duration: 00:45:12
-  ```
-- **Persistence:** Logs survive power cycles
+| Function | GPIO |
+|----------|------|
+| TFT CS   | 15   |
+| TFT DC   | 2    |
+| TFT SCK  | 14   |
+| TFT MOSI | 13   |
+| TFT MISO | 12   |
 
 ## Configuration
 
-### Thresholds (constants in code)
+### WiFi Credentials
+
+Edit the credentials in `src/main.cpp`:
 
 ```cpp
-const int THRESHOLD_YELLOW = 1800;  // 30 minutes (seconds)
-const int THRESHOLD_GREEN = 7200;   // 2 hours (seconds)
+#define WIFI_SSID      "YourSSID"
+#define WIFI_PASSWORD  "YourPassword"
 ```
 
-### Touch Debouncing
+### Time Zone
 
-Configurable debounce delay to prevent accidental double-touches (default: 2 seconds).
+The default time zone is US Central. To change it, edit `src/NTP_Time.h`:
 
-## Development
+```cpp
+#define TIMEZONE usCT  // Change to UK, usET, usPT, usMT, euCET, ausET, etc.
+```
 
-### Platform
+Available time zones:
+- `UK` - United Kingdom (London)
+- `euCET` - Central European Time (Paris, Frankfurt)
+- `usET` - US Eastern (New York)
+- `usCT` - US Central (Chicago)
+- `usMT` - US Mountain (Denver)
+- `usAZ` - Arizona (no DST)
+- `usPT` - US Pacific (Los Angeles)
+- `ausET` - Australia Eastern (Sydney)
 
-- **Framework:** PlatformIO
-- **Build System:** Arduino framework for ESP32
-- **IDE:** VS Code with PlatformIO extension
+## Building & Flashing
 
-### Dependencies
+### Prerequisites
 
-- `bodmer/TFT_eSPI` - Display driver library
-- `paulstoffregen/XPT2046_Touchscreen` - Touch controller library
-- Built-in ESP32 libraries: `LittleFS.h`, `Preferences.h`
+- [PlatformIO](https://platformio.org/) (VS Code extension or CLI)
 
-### Setup
+### Build Commands
 
-1. Install PlatformIO in VS Code
-2. Clone this repository
-3. Open folder in VS Code
-4. Build and upload to ESP32-32E device
+For **resistive touch** boards (ESP32-2432S028R):
+```bash
+pio run -e cyd_resistive
+pio run -e cyd_resistive -t upload
+```
+
+For **capacitive touch** boards (JC2432W328C):
+```bash
+pio run -e cyd_capacitive
+pio run -e cyd_capacitive -t upload
+```
+
+### Monitor Serial Output
 
 ```bash
-pio run --target upload
+pio device monitor
 ```
 
-## Future Enhancements (v2+)
+The serial output shows detailed debug info including chip info, memory usage, and display configuration.
 
-- ⚙️ Settings screen (gear icon) to:
-  - Configure thresholds
-  - View complete log history
-  - Clear logs
-  - Adjust display brightness
-- 📶 WiFi + NTP for real timestamps (date/time)
-- 🔄 Log rotation/management (auto-delete old entries)
-- 📊 Statistics view (average duration, frequency patterns)
-- 🔊 Audio alerts via DAC (GPIO26) when green threshold reached
-- 🌙 Night mode (dimmed display after certain hours)
+## Dependencies
 
-## Version
+Managed automatically by PlatformIO:
 
-**v1.0** - Initial release with basic timer, color coding, and duration logging
+- [TFT_eSPI](https://github.com/Bodmer/TFT_eSPI) - TFT display driver with anti-aliased graphics
+- [TJpg_Decoder](https://github.com/Bodmer/TJpg_Decoder) - JPEG decoder
+- [Time](https://github.com/PaulStoffregen/Time) - Time keeping library
+- [Timezone](https://github.com/JChristensen/Timezone) - Timezone and DST handling
+- [XPT2046_Touchscreen](https://github.com/PaulStoffregen/XPT2046_Touchscreen) - Touch controller (resistive variant only)
+
+## Project Structure
+
+```
+├── platformio.ini          # Build configuration for both board variants
+├── src/
+│   ├── main.cpp            # Main application code
+│   ├── NTP_Time.h          # NTP sync and timezone definitions
+│   ├── dial.h              # Clock dial graphics
+│   ├── NotoSansBold15.h    # Font for clock labels
+│   └── NotoSansBold36.h    # Large font
+```
+
+## Credits
+
+Anti-aliased clock rendering based on a sketch by [DavyLandman](https://github.com/Bodmer/TFT_eSPI/issues/905).
 
 ## License
 
-Personal project for household use.
-
----
-
-*Built with ❤️ for Nigel the dog* 🐕
+MIT License
